@@ -73,6 +73,15 @@ const currentFortnightIdx = (list) => {
   return 0;
 };
 
+// Returns the fortnight object { start, label } that contains a given date string.
+const getFortnightForDate = (dateStr) => {
+  const list = generateFortnights();
+  for (let i = list.length - 1; i >= 0; i--) {
+    if (list[i].start <= dateStr) return list[i];
+  }
+  return list[0];
+};
+
 // Default staff lists — only used on first load. Admin can edit in Settings.
 const DEFAULT_SUPERVISORS = [
   "Johan van der Merwe", "Anél Botha", "Pieter Joubert",
@@ -981,10 +990,12 @@ const StaffManager = ({ staff, setStaff }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // ADMIN VIEW
 // ─────────────────────────────────────────────────────────────────────────────
-const AdminView = ({ submissions, setSubmissions, rates, setRates, onLogout, staff, setStaff, estates, setEstates, workTypes, setWorkTypes }) => {
+const AdminView = ({ submissions, setSubmissions, rates, setRates, onLogout, staff, setStaff, estates, setEstates, workTypes, setWorkTypes, sheetsUrl, setSheetsUrl, syncAllToSheets }) => {
   const [tab, setTab]               = useState("submissions");
   const [editSheet, setEditSheet]   = useState(null);
   const [printSheet, setPrintSheet] = useState(null);
+  const [sheetsInput, setSheetsInput] = useState(sheetsUrl);
+  const [sheetsStatus, setSheetsStatus] = useState(null); // null | "testing" | "ok" | "err"
 
   // Dynamic fortnight list, computed once
   const allFortnights = useMemo(() => generateFortnights(), []);
@@ -1174,6 +1185,65 @@ const AdminView = ({ submissions, setSubmissions, rates, setRates, onLogout, sta
               </div>
             </Card>
 
+            {/* Google Sheets Sync */}
+            <Card style={{ marginBottom:16 }}>
+              <SecHead icon="📊">Google Sheets Sync</SecHead>
+              <p style={{ fontSize:12, color:C.muted, marginBottom:14, lineHeight:1.6 }}>
+                Paste your Apps Script web app URL below. Every new submission will be sent to your Google Sheet automatically — and a payroll tab per fortnight will be created for you.
+              </p>
+              <Lbl>Apps Script Web App URL</Lbl>
+              <div style={{ display:"flex", gap:8, marginBottom:10 }}>
+                <Inp
+                  type="url"
+                  placeholder="https://script.google.com/macros/s/…/exec"
+                  value={sheetsInput}
+                  onChange={e=>setSheetsInput(e.target.value)}
+                  style={{ flex:1, fontSize:12 }}
+                />
+                <button
+                  onClick={()=>{ setSheetsUrl(sheetsInput); setSheetsStatus(null); }}
+                  style={{ padding:"8px 14px", background:C.accent, color:"#fff", border:"none", borderRadius:9, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit", whiteSpace:"nowrap" }}>
+                  Save URL
+                </button>
+              </div>
+              {sheetsUrl && (
+                <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:10 }}>
+                  <button
+                    onClick={async ()=>{
+                      setSheetsStatus("testing");
+                      try {
+                        const res = await fetch(sheetsUrl);
+                        const data = await res.json();
+                        setSheetsStatus(data.status === "VineTime API OK" ? "ok" : "wrong");
+                      } catch(err) {
+                        setSheetsStatus(err.message && err.message.includes("NetworkError") ? "cors" : "err");
+                      }
+                    }}
+                    style={{ padding:"7px 14px", background:C.goldLt, color:C.gold, border:`1px solid ${C.gold}44`, borderRadius:9, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+                    {sheetsStatus==="testing" ? "Testing…" : "Test Connection"}
+                  </button>
+                  <button
+                    onClick={async ()=>{
+                      const n = syncAllToSheets();
+                      if (!n) { alert("No submissions to sync."); return; }
+                      alert(`Sending ${n} submission(s) to Google Sheets… check your Sheet in a few seconds.`);
+                    }}
+                    style={{ padding:"7px 14px", background:C.green, color:"#fff", border:"none", borderRadius:9, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+                    ↑ Sync All Submissions Now
+                  </button>
+                </div>
+              )}
+              {sheetsStatus==="ok"    && <div style={{ fontSize:12, color:C.green,      fontWeight:700 }}>✅ Script is live — VineTime API responding correctly.</div>}
+              {sheetsStatus==="wrong" && <div style={{ fontSize:12, color:C.gold,       fontWeight:700 }}>⚠ URL responded but doesn't look like VineTime. Did you paste the right script?</div>}
+              {sheetsStatus==="cors"  && <div style={{ fontSize:12, color:"#c0392b",    fontWeight:700 }}>❌ CORS error — in Apps Script deploy settings, set "Who has access" to <strong>Anyone</strong>.</div>}
+              {sheetsStatus==="err"   && <div style={{ fontSize:12, color:"#c0392b",    fontWeight:700 }}>❌ URL not reachable — check the URL is correct and the script is deployed.</div>}
+              {!sheetsUrl && (
+                <div style={{ fontSize:12, color:C.muted, background:C.bg, borderRadius:8, padding:"10px 14px", lineHeight:1.6 }}>
+                  No URL saved yet. Follow the setup guide to create your Apps Script and paste the URL above.
+                </div>
+              )}
+            </Card>
+
             {/* Passwords */}
             <Card style={{ marginBottom:16 }}>
               <SecHead icon="🔐">Passwords</SecHead>
@@ -1264,11 +1334,50 @@ function App() {
     return next;
   });
 
+  // Google Sheets sync URL (set in Admin → Settings)
+  const [sheetsUrl, setSheetsUrlRaw] = useState(() => {
+    try { return localStorage.getItem("vine_sheets_url") || ""; } catch { return ""; }
+  });
+  const setSheetsUrl = (v) => {
+    setSheetsUrlRaw(v);
+    try { localStorage.setItem("vine_sheets_url", v); } catch {}
+  };
+
+  // Syncs a single submission to Google Sheets.
+  // Uses application/x-www-form-urlencoded — a "simple" CORS request that needs no preflight
+  // and lets us read the response to confirm success.
+  const syncToSheets = (sheet, url) => {
+    const target = url !== undefined ? url : sheetsUrl;
+    if (!target) return;
+    const fn = getFortnightForDate(sheet.date);
+    const payload = {
+      submission: sheet,
+      fortnightLabel: fn.label,
+      fortnightStart: fn.start,
+      rates,
+      permanentWorkers: (staff && staff.permanent) ? staff.permanent : [],
+      staff
+    };
+    const form = new URLSearchParams({ data: JSON.stringify(payload) });
+    fetch(target, { method: "POST", body: form })
+      .then(r => r.json())
+      .then(d => { if (!d.ok) console.warn("VineTime sync error:", d.error); })
+      .catch(err => console.warn("VineTime sync failed:", err.message));
+  };
+
+  // Pushes every stored submission to Sheets (used in Settings "Sync All" button)
+  const syncAllToSheets = (url) => {
+    const target = url || sheetsUrl;
+    if (!target || !submissions.length) return 0;
+    submissions.forEach(s => syncToSheets(s, target));
+    return submissions.length;
+  };
+
   if (!role) return <LoginScreen onLogin={setRole} />;
 
   if (role==="supervisor") return (
     <SupervisorView
-      onSubmit={(sheet)=>setSubmissions(p=>[...p,sheet])}
+      onSubmit={(sheet) => { setSubmissions(p=>[...p,sheet]); syncToSheets(sheet); }}
       submissions={submissions}
       onLogout={()=>setRole(null)}
       staff={staff}
@@ -1285,6 +1394,8 @@ function App() {
       staff={staff} setStaff={setStaff}
       estates={estates} setEstates={setEstates}
       workTypes={workTypes} setWorkTypes={setWorkTypes}
+      sheetsUrl={sheetsUrl} setSheetsUrl={setSheetsUrl}
+      syncAllToSheets={syncAllToSheets}
     />
   );
 }
