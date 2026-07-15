@@ -1,0 +1,13 @@
+{
+  "name": "Wine Estate Timesheet",
+  "short_name": "VineTime",
+  "description": "Wine estate labour timesheet tracker",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f2f4ee",
+  "theme_color": "#7b1a3a",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
