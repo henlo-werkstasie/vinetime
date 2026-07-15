@@ -742,7 +742,7 @@ const PayrollSummary = ({ submissions, rates, fortnightStart, staff=DEFAULT_STAF
       if (s.supervisor && !s.teamLeader) add(s.supervisor,"supervisor",teamH);
       if (s.hasDriver&&s.driverName){
         const dWaitH=(s.driverWaitingPeriods||[]).reduce((a,b)=>a+(b||0),0)/60;
-        let dH=Math.max(0,calcNetHours(s.driverClockIn||s.clockIn,s.driverClockOut||s.clockOut,false)-dWaitH);
+        let dH=Math.max(0,calcNetHours(s.driverClockIn||s.clockIn,s.driverClockOut||s.clockOut,s.lunchTaken)-dWaitH);
         s.driverDrops.forEach(dr=>{dH+=calcNetHours(dr.clockIn,dr.clockOut,false);});
         add(s.driverName,"driver",dH);
       }
@@ -852,7 +852,7 @@ const PayrollSummary = ({ submissions, rates, fortnightStart, staff=DEFAULT_STAF
 const PrintPreview = ({ sheet, onClose, staff=DEFAULT_STAFF }) => {
   const netH    = calcNetHours(sheet.clockIn,sheet.clockOut,sheet.lunchTaken);
   const dWaitH=(sheet.driverWaitingPeriods||[]).reduce((a,b)=>a+(b||0),0)/60;
-  const driverH = sheet.hasDriver?Math.max(0,calcNetHours(sheet.driverClockIn||sheet.clockIn,sheet.driverClockOut||sheet.clockOut,false)-dWaitH):0;
+  const driverH = sheet.hasDriver?Math.max(0,calcNetHours(sheet.driverClockIn||sheet.clockIn,sheet.driverClockOut||sheet.clockOut,sheet.lunchTaken)-dWaitH):0;
   return (
     <div style={{ position:"fixed", inset:0, background:"#fff", zIndex:9999, overflowY:"auto", fontFamily:"Georgia,serif" }}>
       <div className="no-print" style={{ position:"sticky", top:0, background:C.accent, color:"#fff", padding:"10px 24px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
@@ -1197,7 +1197,7 @@ const AdminView = ({ submissions, setSubmissions, rates, setRates, onLogout, sta
                           {group.items.map(s=>{
                             const netH=calcNetHours(s.clockIn,s.clockOut,s.lunchTaken);
                             const dWaitH=(s.driverWaitingPeriods||[]).reduce((a,b)=>a+(b||0),0)/60;
-                            const driverH=s.hasDriver&&s.driverName&&s.driverClockIn&&s.driverClockOut?Math.max(0,calcNetHours(s.driverClockIn,s.driverClockOut,false)-dWaitH):null;
+                            const driverH=s.hasDriver&&s.driverName&&s.driverClockIn&&s.driverClockOut?Math.max(0,calcNetHours(s.driverClockIn,s.driverClockOut,s.lunchTaken)-dWaitH):null;
                             const dayName=s.date?new Date(s.date+"T12:00:00").toLocaleDateString("en-ZA",{weekday:"short"}):"";
                             return (
                               <Card key={s.id} style={{ padding:0, overflow:"hidden" }}>
@@ -1494,7 +1494,7 @@ function App() {
   });
 
   // Google Sheets sync URL (set in Admin → Settings)
-  const HARDCODED_URL = "https://script.google.com/macros/s/AKfycbxpxPdUt4xlA-EWwh22Kw560Ku_8Pl387o_S06yETB7atqTQ_Xw9YEjccVUJ2RNe3Xo/exec";
+  const HARDCODED_URL = "https://script.google.com/macros/s/AKfycby04JL69kFYRWcExoHR-zpcC94iCeGYHfxXhGYt2PceDnW76MI67g8Jptti3QKsS5GJ/exec";
   const [sheetsUrl, setSheetsUrlRaw] = useState(() => {
     try { return localStorage.getItem("vine_sheets_url") || HARDCODED_URL; } catch { return HARDCODED_URL; }
   });
