@@ -10,12 +10,18 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="VineTime" />
   <link rel="apple-touch-icon" href="icon.svg" />
-  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.22.5/babel.min.js"></script>
   <style>
-    html,body{margin:0;padding:0;background:#f2f4ee;}
+    *{box-sizing:border-box;max-width:100%;}
+    html,body{margin:0;padding:0;background:#f2f4ee;overflow-x:hidden;width:100%;}
     body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);}
+    input,select,textarea{max-width:100%;width:100%;font-size:16px;}
+    input:not([type="checkbox"]):not([type="radio"]),select,textarea{-webkit-appearance:none;appearance:none;}
+    input[type="date"],input[type="time"]{-webkit-appearance:none;appearance:none;display:block;width:100%;min-height:48px;font-size:16px;font-family:inherit;padding:13px 14px;border-radius:10px;border:1.5px solid #d5dcc8;background:#fafaf7;color:#1c1c1c;}
+    select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px;}
+    img{max-width:100%;height:auto;}
   </style>
 </head>
 <body>
@@ -114,13 +120,14 @@ const DEFAULT_WORK_TYPES = ["Bottling", "Labelling", "Reworks"];
 const pad2     = (n) => String(n).padStart(2, "0");
 const todayStr = () => new Date().toISOString().split("T")[0];
 
+const lunchMins = (v) => { if (v===true||v===0.5) return 30; if (v===1) return 60; return 0; };
 const calcNetHours = (inT, outT, lunch) => {
   if (!inT || !outT) return 0;
   const [ih, im] = inT.split(":").map(Number);
   const [oh, om] = outT.split(":").map(Number);
   const mins = (oh * 60 + om) - (ih * 60 + im);
   if (mins <= 0) return 0;
-  return Math.max(0, mins / 60 - (lunch ? 0.5 : 0));
+  return Math.max(0, mins / 60 - lunchMins(lunch) / 60);
 };
 
 const fmtH = (h) => {
@@ -151,7 +158,7 @@ const emptySheet = (supervisor = "") => ({
   workType: "",
   clockIn: "",
   clockOut: "",
-  lunchTaken: false,
+  lunchTaken: 0,
   hasDriver: false,
   driverName: "",
   driverClockIn: "",
@@ -176,7 +183,7 @@ const C = {
 };
 
 const ROLE_COLOR = { supervisor: C.accent, driver: C.gold, permanent: C.green, casual: C.purple };
-const ROLE_LABEL = { supervisor: "Supervisor", driver: "Driver", permanent: "Permanent", casual: "Casual" };
+const ROLE_LABEL = { supervisor: "Supervisor", driver: "Driver", permanent: "General - Permanent", casual: "General - Casual" };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ATOMS
@@ -188,11 +195,11 @@ const Lbl = ({ children, req }) => (
 );
 
 const Inp = ({ style, ...p }) => (
-  <input {...p} style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: `1.5px solid ${C.border}`, background: C.inputBg, fontSize: 13, color: C.text, fontFamily: "inherit", outline: "none", boxSizing: "border-box", ...style }} />
+  <input {...p} style={{ width: "100%", padding: "13px 14px", borderRadius: 10, border: `1.5px solid ${C.border}`, background: C.inputBg, fontSize: 16, color: C.text, fontFamily: "inherit", outline: "none", boxSizing: "border-box", ...style }} />
 );
 
 const Sel = ({ children, style, ...p }) => (
-  <select {...p} style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: `1.5px solid ${C.border}`, background: C.inputBg, fontSize: 13, color: p.value ? C.text : C.muted, fontFamily: "inherit", outline: "none", boxSizing: "border-box", ...style }}>
+  <select {...p} style={{ width: "100%", padding: "13px 14px", borderRadius: 10, border: `1.5px solid ${C.border}`, background: C.inputBg, fontSize: 16, color: p.value ? C.text : C.muted, fontFamily: "inherit", outline: "none", boxSizing: "border-box", ...style }}>
     {children}
   </select>
 );
@@ -202,7 +209,7 @@ const Textarea = ({ style, ...p }) => (
 );
 
 const Card = ({ children, style }) => (
-  <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: "20px 22px", boxShadow: "0 2px 8px rgba(42,26,14,.05)", ...style }}>
+  <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: "18px 16px", boxShadow: "0 2px 8px rgba(42,26,14,.05)", width:"100%", boxSizing:"border-box", ...style }}>
     {children}
   </div>
 );
@@ -226,9 +233,9 @@ const Chip = ({ label, color = C.accent, onRemove }) => (
 );
 
 const CheckRow = ({ checked, onChange, label, color = C.green }) => (
-  <label style={{ display: "flex", alignItems: "center", gap: 7, cursor: "pointer", padding: "8px 12px", background: checked ? color + "12" : C.inputBg, border: `1.5px solid ${checked ? color : C.border}`, borderRadius: 9 }}>
-    <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} style={{ accentColor: color, width: 15, height: 15 }} />
-    <span style={{ fontSize: 13, fontWeight: 700, color: checked ? color : C.muted }}>{label}</span>
+  <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "13px 16px", background: checked ? color + "12" : C.inputBg, border: `1.5px solid ${checked ? color : C.border}`, borderRadius: 10 }}>
+    <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} style={{ accentColor: color, width: 20, height: 20, flexShrink: 0 }} />
+    <span style={{ fontSize: 15, fontWeight: 700, color: checked ? color : C.muted }}>{label}</span>
   </label>
 );
 
@@ -329,11 +336,11 @@ const FortnightPicker = ({ fortnights, selectedStart, onChange, submissions }) =
 // ─────────────────────────────────────────────────────────────────────────────
 // MEMBER PICKER
 // ─────────────────────────────────────────────────────────────────────────────
-const MemberPicker = ({ selected, onChange, exclude = [], permanent = [], casual = [] }) => {
+const MemberPicker = ({ selected, onChange, exclude = [], permanent = [], casual = [], supervisors = [] }) => {
   const [q, setQ] = useState("");
 
   const filt = (pool) => pool.filter(w => !exclude.includes(w) && w.toLowerCase().includes(q.toLowerCase()));
-  const fPerm = filt(permanent);
+  const fPerm = filt([...supervisors, ...permanent]);
   const fCas  = filt(casual);
   const allF  = [...fPerm, ...fCas];
 
@@ -363,25 +370,25 @@ const MemberPicker = ({ selected, onChange, exclude = [], permanent = [], casual
           {allSel ? "Deselect all" : "Select all"}
         </button>
       </div>
-      <div style={{ maxHeight: 260, overflowY: "auto", border: `1.5px solid ${C.border}`, borderRadius: 10, background: C.inputBg }}>
+      <div style={{ maxHeight: 340, overflowY: "auto", border: `1.5px solid ${C.border}`, borderRadius: 10, background: C.inputBg }}>
         {allF.length === 0 && <div style={{ padding: 14, textAlign: "center", color: C.muted, fontSize: 12 }}>No matches</div>}
         {fPerm.length > 0 && <>
           <GroupBar label="General – Permanent" color={C.green} pool={fPerm} />
           {fPerm.map(n => (
-            <label key={n} onClick={() => toggle(n)} style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 13px", cursor: "pointer", borderBottom: `1px solid ${C.border}`, background: selected.includes(n) ? C.greenLt : "transparent" }}>
-              <input type="checkbox" readOnly checked={selected.includes(n)} style={{ accentColor: C.green, width: 14, height: 14 }} />
-              <span style={{ fontSize: 13, color: C.text, fontWeight: selected.includes(n) ? 700 : 400 }}>{n}</span>
-              {selected.includes(n) && <span style={{ marginLeft: "auto", fontSize: 10, color: C.green }}>✓</span>}
+            <label key={n} onClick={() => toggle(n)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", cursor: "pointer", borderBottom: `1px solid ${C.border}`, background: selected.includes(n) ? C.greenLt : "transparent" }}>
+              <input type="checkbox" readOnly checked={selected.includes(n)} style={{ accentColor: C.green, width: 20, height: 20, flexShrink: 0 }} />
+              <span style={{ fontSize: 15, color: C.text, fontWeight: selected.includes(n) ? 700 : 400 }}>{n}</span>
+              {selected.includes(n) && <span style={{ marginLeft: "auto", fontSize: 14, color: C.green }}>✓</span>}
             </label>
           ))}
         </>}
         {fCas.length > 0 && <>
           <GroupBar label="General – Casual" color={C.purple} pool={fCas} />
           {fCas.map(n => (
-            <label key={n} onClick={() => toggle(n)} style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 13px", cursor: "pointer", borderBottom: `1px solid ${C.border}`, background: selected.includes(n) ? C.purpleLt : "transparent" }}>
-              <input type="checkbox" readOnly checked={selected.includes(n)} style={{ accentColor: C.purple, width: 14, height: 14 }} />
-              <span style={{ fontSize: 13, color: C.text, fontWeight: selected.includes(n) ? 700 : 400 }}>{n}</span>
-              {selected.includes(n) && <span style={{ marginLeft: "auto", fontSize: 10, color: C.purple }}>✓</span>}
+            <label key={n} onClick={() => toggle(n)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", cursor: "pointer", borderBottom: `1px solid ${C.border}`, background: selected.includes(n) ? C.purpleLt : "transparent" }}>
+              <input type="checkbox" readOnly checked={selected.includes(n)} style={{ accentColor: C.purple, width: 20, height: 20, flexShrink: 0 }} />
+              <span style={{ fontSize: 15, color: C.text, fontWeight: selected.includes(n) ? 700 : 400 }}>{n}</span>
+              {selected.includes(n) && <span style={{ marginLeft: "auto", fontSize: 14, color: C.purple }}>✓</span>}
             </label>
           ))}
         </>}
@@ -452,7 +459,7 @@ const LoginScreen = ({ onLogin }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // TIMESHEET FORM
 // ─────────────────────────────────────────────────────────────────────────────
-const TimesheetForm = ({ initial, onSubmit, onCancel, submitLabel="Submit Timesheet", isAdmin=false, staff=DEFAULT_STAFF, estates=DEFAULT_ESTATES, workTypes=DEFAULT_WORK_TYPES }) => {
+const TimesheetForm = ({ initial, onSubmit, onCancel, submitLabel="Submit Timesheet", isAdmin=false, staff=DEFAULT_STAFF, estates=DEFAULT_ESTATES, workTypes=DEFAULT_WORK_TYPES, disabled=false }) => {
   const [s, setS]       = useState(initial || emptySheet());
   const [errs, setErrs] = useState([]);
   const upd = (k,v) => setS(p=>({...p,[k]:v}));
@@ -479,7 +486,7 @@ const TimesheetForm = ({ initial, onSubmit, onCancel, submitLabel="Submit Timesh
     <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
       <Card>
         <SecHead icon="📋">Job Details</SecHead>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))", gap:14 }}>
           <div><Lbl req>Date</Lbl><Inp type="date" value={s.date} onChange={e=>upd("date",e.target.value)} /></div>
           <div>
             <Lbl req>Supervisor</Lbl>
@@ -511,19 +518,27 @@ const TimesheetForm = ({ initial, onSubmit, onCancel, submitLabel="Submit Timesh
       <Card>
         <SecHead icon="⏰">Team Clock Times</SecHead>
         <p style={{ fontSize:12, color:C.muted, marginBottom:14 }}>These times apply to all selected team members below.</p>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr auto", gap:12, alignItems:"end" }}>
+        <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
           <div><Lbl req>Clock In</Lbl><Inp type="time" value={s.clockIn} onChange={e=>upd("clockIn",e.target.value)} /></div>
           <div><Lbl req>Clock Out</Lbl><Inp type="time" value={s.clockOut} onChange={e=>upd("clockOut",e.target.value)} /></div>
-          <div style={{ display:"flex", alignItems:"flex-end", paddingBottom:2 }}><HBadge h={teamNetH} /></div>
-          <div><CheckRow checked={s.lunchTaken} onChange={v=>upd("lunchTaken",v)} label="Lunch −30m" /></div>
+          <div>
+            <Lbl>Lunch Break</Lbl>
+            <div style={{ display:"flex", background:"#f0ece8", borderRadius:10, padding:4, gap:4 }}>
+              {[[0,"None"],[0.5,"30 min"],[1,"1 hour"]].map(([val,label])=>(
+                <button key={val} onClick={()=>upd("lunchTaken",val)}
+                  style={{ flex:1, padding:"11px 4px", border:"none", borderRadius:8, background:s.lunchTaken===val?"#fff":"transparent", color:s.lunchTaken===val?C.accent:C.muted, fontWeight:800, fontSize:14, cursor:"pointer", fontFamily:"inherit", transition:"all .15s" }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
-        {s.lunchTaken&&<div style={{ marginTop:10, background:C.greenLt, border:`1px solid ${C.green}33`, borderRadius:8, padding:"7px 13px", fontSize:12, color:C.green, fontWeight:600 }}>✓ 30 minutes deducted from each worker's hours</div>}
       </Card>
 
       <Card>
         <SecHead icon="👥">Team Members</SecHead>
         <p style={{ fontSize:12, color:C.muted, marginBottom:12 }}>Select everyone working today. The supervisor is automatically included at their rate.</p>
-        <MemberPicker selected={s.workers} onChange={v=>upd("workers",v)} permanent={staff.permanent} casual={staff.casual} />
+        <MemberPicker selected={s.workers} onChange={v=>upd("workers",v)} supervisors={staff.supervisors} permanent={staff.permanent} casual={staff.casual} />
         {s.workers.length>0&&<div style={{ marginTop:10, background:C.goldLt, border:`1px solid ${C.gold}33`, borderRadius:8, padding:"7px 13px", fontSize:12, color:C.gold, fontWeight:700 }}>
           {s.workers.length} worker{s.workers.length!==1?"s":""} selected{teamNetH>0?` · ${fmtH(teamNetH)} each`:""}
         </div>}
@@ -544,10 +559,9 @@ const TimesheetForm = ({ initial, onSubmit, onCancel, submitLabel="Submit Timesh
           </div>
           <div style={{ background:C.goldLt, borderRadius:10, padding:"12px 14px", marginBottom:12 }}>
             <div style={{ fontSize:11, fontWeight:700, color:C.gold, marginBottom:10 }}>DRIVER TIMES — leave blank to use team times above</div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr auto", gap:10, alignItems:"end" }}>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, alignItems:"end" }}>
               <div><Lbl>Clock In</Lbl><Inp type="time" value={s.driverClockIn} onChange={e=>upd("driverClockIn",e.target.value)} /></div>
               <div><Lbl>Clock Out</Lbl><Inp type="time" value={s.driverClockOut} onChange={e=>upd("driverClockOut",e.target.value)} /></div>
-              <HBadge h={calcNetHours(s.driverClockIn||s.clockIn, s.driverClockOut||s.clockOut, s.lunchTaken)} />
             </div>
           </div>
           {s.driverDrops.map((dr,i)=>(
@@ -557,10 +571,9 @@ const TimesheetForm = ({ initial, onSubmit, onCancel, submitLabel="Submit Timesh
                 <button onClick={()=>rmDrop(i)} style={{ background:"none", border:"none", color:C.muted, cursor:"pointer", fontSize:18 }}>×</button>
               </div>
               <Inp placeholder="Label (e.g. Tokara – Team B)" value={dr.label} onChange={e=>updDrop(i,"label",e.target.value)} style={{ marginBottom:8 }} />
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr auto", gap:8, alignItems:"end" }}>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, alignItems:"end" }}>
                 <div><Lbl>Arrived</Lbl><Inp type="time" value={dr.clockIn} onChange={e=>updDrop(i,"clockIn",e.target.value)} /></div>
                 <div><Lbl>Departed</Lbl><Inp type="time" value={dr.clockOut} onChange={e=>updDrop(i,"clockOut",e.target.value)} /></div>
-                <HBadge h={calcNetHours(dr.clockIn,dr.clockOut,false)} />
               </div>
             </div>
           ))}
@@ -577,9 +590,9 @@ const TimesheetForm = ({ initial, onSubmit, onCancel, submitLabel="Submit Timesh
         {errs.map((e,i)=><div key={i} style={{ fontSize:12, color:"#991b1b", fontWeight:600 }}>⚠ {e}</div>)}
       </div>}
 
-      <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
-        {onCancel&&<button onClick={onCancel} style={{ padding:"11px 22px", background:"none", border:`1.5px solid ${C.border}`, borderRadius:11, color:C.muted, fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>Cancel</button>}
-        <button onClick={submit} style={{ padding:"11px 28px", background:C.accent, border:"none", borderRadius:11, color:"#fff", fontSize:14, fontWeight:900, cursor:"pointer", fontFamily:"inherit", boxShadow:`0 4px 14px ${C.accent}44` }}>{submitLabel}</button>
+      <div style={{ position:"sticky", bottom:0, background:C.bg, padding:"12px 0 8px", display:"flex", gap:10, justifyContent:"flex-end", zIndex:10 }}>
+        {onCancel&&<button onClick={onCancel} style={{ padding:"14px 22px", background:"none", border:`1.5px solid ${C.border}`, borderRadius:12, color:C.muted, fontSize:14, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>Cancel</button>}
+        <button onClick={submit} disabled={disabled} style={{ flex:1, padding:"16px 28px", background:disabled?C.muted:C.accent, border:"none", borderRadius:12, color:"#fff", fontSize:16, fontWeight:900, cursor:disabled?"not-allowed":"pointer", fontFamily:"inherit", boxShadow:disabled?"none":`0 4px 14px ${C.accent}44`, opacity:disabled?0.7:1 }}>{submitLabel}</button>
       </div>
     </div>
   );
@@ -591,10 +604,22 @@ const TimesheetForm = ({ initial, onSubmit, onCancel, submitLabel="Submit Timesh
 const SupervisorView = ({ onSubmit, submissions, onLogout, staff=DEFAULT_STAFF, estates=DEFAULT_ESTATES, workTypes=DEFAULT_WORK_TYPES }) => {
   const [selectedSupervisor, setSelectedSupervisor] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
   const [lastSheet, setLastSheet] = useState(null);
   const mySubs = submissions.filter(s=>s.supervisor===selectedSupervisor);
 
-  const handleSubmit = (sheet) => { onSubmit(sheet); setLastSheet(sheet); setSubmitted(true); };
+  const handleSubmit = (sheet) => {
+    setSubmitting(true);
+    setSubmitError(null);
+    onSubmit(sheet)
+      .then(d => {
+        if (d.ok) { setLastSheet(sheet); setSubmitted(true); }
+        else { setSubmitError("Save failed: " + (d.error || "unknown error")); }
+      })
+      .catch(() => setSubmitError("No internet connection. Please check your signal and try again."))
+      .finally(() => setSubmitting(false));
+  };
 
   if (!selectedSupervisor) return (
     <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'Lato',system-ui,sans-serif" }}>
@@ -645,8 +670,9 @@ const SupervisorView = ({ onSubmit, submissions, onLogout, staff=DEFAULT_STAFF, 
   return (
     <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'Lato',system-ui,sans-serif" }}>
       <AppHeader role="supervisor" onLogout={onLogout} supervisorName={selectedSupervisor} onSwitchSupervisor={()=>setSelectedSupervisor("")} submissions={submissions} />
-      <div style={{ maxWidth:700, margin:"0 auto", padding:"24px 16px 60px" }}>
-        <TimesheetForm initial={emptySheet(selectedSupervisor)} onSubmit={handleSubmit} submitLabel="Submit Timesheet ✓" staff={staff} estates={estates} workTypes={workTypes} />
+      <div style={{ maxWidth:600, width:"100%", margin:"0 auto", padding:"16px 16px 100px", boxSizing:"border-box" }}>
+        {submitError&&<div style={{ background:"#fee2e2", border:"1px solid #fca5a5", borderRadius:10, padding:"12px 16px", marginBottom:12, fontSize:13, color:"#991b1b", fontWeight:600 }}>⚠ {submitError}</div>}
+        <TimesheetForm initial={emptySheet(selectedSupervisor)} onSubmit={handleSubmit} submitLabel={submitting?"Saving…":"Submit Timesheet ✓"} staff={staff} estates={estates} workTypes={workTypes} disabled={submitting} />
       </div>
     </div>
   );
@@ -800,7 +826,7 @@ const PrintPreview = ({ sheet, onClose, staff=DEFAULT_STAFF }) => {
         </div>
         <table style={{ width:"100%", borderCollapse:"collapse", marginBottom:20, fontSize:12 }}>
           <tbody><tr>
-            {[["Supervisor",sheet.supervisor],["Estate",sheet.estate],["Work Type",sheet.workType],["Lunch",sheet.lunchTaken?"Yes (−30m)":"No"]].map(([k,v])=>(
+            {[["Supervisor",sheet.supervisor],["Estate",sheet.estate],["Work Type",sheet.workType],["Lunch",sheet.lunchTaken===1?"Yes (−1h)":sheet.lunchTaken===0.5||sheet.lunchTaken===true?"Yes (−30m)":"No"]].map(([k,v])=>(
               <td key={k} style={{ padding:"8px 10px", border:"1px solid #ddd" }}>
                 <div style={{ fontSize:9, fontWeight:800, color:"#999", letterSpacing:.6, marginBottom:2 }}>{k.toUpperCase()}</div>
                 <div style={{ fontWeight:700 }}>{v||"—"}</div>
@@ -873,23 +899,20 @@ const PrintPreview = ({ sheet, onClose, staff=DEFAULT_STAFF }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const AppHeader = ({ role, onLogout, supervisorName, onSwitchSupervisor, submissions, adminTab, setAdminTab }) => (
   <header style={{ background:C.accent, color:"#fff", paddingBottom:0 }} className="no-print">
-    <div style={{ maxWidth:1000, margin:"0 auto", padding:"14px 20px 0" }}>
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <img src={LOGO_B64} alt="VineTime" style={{ height:36, filter:"brightness(0) invert(1)" }} />
-          {supervisorName&&<div style={{ marginLeft:12, padding:"4px 12px", background:"rgba(255,255,255,.12)", borderRadius:99, fontSize:12, fontWeight:700 }}>👷 {supervisorName}</div>}
-        </div>
-        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-          {submissions!==undefined&&<span style={{ fontSize:11, color:"rgba(255,255,255,.5)" }}>{submissions.length} submission{submissions.length!==1?"s":""}</span>}
-          {onSwitchSupervisor&&<button onClick={onSwitchSupervisor} style={{ padding:"6px 13px", background:"rgba(255,255,255,.1)", border:"1px solid rgba(255,255,255,.2)", borderRadius:8, color:"#fff", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>Switch</button>}
-          <button onClick={onLogout} style={{ padding:"6px 13px", background:"rgba(255,255,255,.1)", border:"1px solid rgba(255,255,255,.2)", borderRadius:8, color:"#fff", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>🚪 Log out</button>
+    <div style={{ maxWidth:1000, margin:"0 auto", padding:"20px 16px 16px" }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14, gap:8 }}>
+        <img src={LOGO_B64} alt="VineTime" style={{ height:30, filter:"brightness(0) invert(1)", flexShrink:0 }} />
+        <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
+          {supervisorName&&<div style={{ padding:"6px 10px", background:"rgba(255,255,255,.15)", borderRadius:8, fontSize:11, fontWeight:700, maxWidth:110, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>👷 {supervisorName}</div>}
+          {onSwitchSupervisor&&<button onClick={onSwitchSupervisor} style={{ padding:"8px 12px", background:"rgba(255,255,255,.1)", border:"1px solid rgba(255,255,255,.2)", borderRadius:8, color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit", whiteSpace:"nowrap" }}>Switch</button>}
+          <button onClick={onLogout} style={{ padding:"8px 12px", background:"rgba(255,255,255,.1)", border:"1px solid rgba(255,255,255,.2)", borderRadius:8, color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit", whiteSpace:"nowrap" }}>Log out</button>
         </div>
       </div>
       {role==="admin"&&adminTab!==undefined&&(
         <div style={{ display:"flex", gap:0 }}>
           {[["submissions","📋 Submissions"],["payroll","💳 Payroll"],["settings","⚙ Settings"]].map(([k,lb])=>(
             <button key={k} onClick={()=>setAdminTab(k)}
-              style={{ padding:"9px 20px", background:adminTab===k?C.bg:"transparent", color:adminTab===k?C.accent:"rgba(255,255,255,.7)", border:"none", borderRadius:"9px 9px 0 0", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+              style={{ flex:1, padding:"9px 6px", background:adminTab===k?C.bg:"transparent", color:adminTab===k?C.accent:"rgba(255,255,255,.7)", border:"none", borderRadius:"9px 9px 0 0", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit", textAlign:"center" }}>
               {lb}
             </button>
           ))}
@@ -902,7 +925,7 @@ const AppHeader = ({ role, onLogout, supervisorName, onSwitchSupervisor, submiss
 // ─────────────────────────────────────────────────────────────────────────────
 // STAFF MANAGER
 // ─────────────────────────────────────────────────────────────────────────────
-const StaffManager = ({ staff, setStaff }) => {
+const StaffManager = ({ staff, setStaff, sheetsUrl }) => {
   const [newName, setNewName] = useState("");
   const [newRole, setNewRole] = useState("permanent");
   const [confirm, setConfirm] = useState(null);
@@ -910,8 +933,8 @@ const StaffManager = ({ staff, setStaff }) => {
   const roleConfig = [
     { key:"supervisors", label:"Supervisors",       color:C.accent, icon:"👷" },
     { key:"drivers",     label:"Drivers",           color:C.gold,   icon:"🚐" },
-    { key:"permanent",   label:"Permanent Workers", color:C.green,  icon:"🟢" },
-    { key:"casual",      label:"Casual Workers",    color:C.purple, icon:"🔵" },
+    { key:"permanent",   label:"General - Permanent", color:C.green,  icon:"🟢" },
+    { key:"casual",      label:"General - Casual",    color:C.purple, icon:"🔵" },
   ];
 
   const addPerson = () => {
@@ -921,6 +944,12 @@ const StaffManager = ({ staff, setStaff }) => {
     if (all.some(n=>n.toLowerCase()===name.toLowerCase())) { alert(`"${name}" already exists.`); return; }
     setStaff(prev=>({...prev,[newRole]:[...prev[newRole],name]}));
     setNewName("");
+    // Write new member to Sheet Staff tab
+    if (sheetsUrl) {
+      const roleKey = newRole === "supervisors" ? "supervisor" : newRole === "drivers" ? "driver" : newRole;
+      const form = new URLSearchParams({ data: JSON.stringify({ action: "addStaff", name, role: roleKey }) });
+      fetch(sheetsUrl, { method: "POST", body: form }).catch(()=>{});
+    }
   };
 
   const removePerson = (roleKey,name) => { setStaff(prev=>({...prev,[roleKey]:prev[roleKey].filter(n=>n!==name)})); setConfirm(null); };
@@ -936,8 +965,8 @@ const StaffManager = ({ staff, setStaff }) => {
           <Sel value={newRole} onChange={e=>setNewRole(e.target.value)} style={{ flex:"0 0 auto", width:"auto", minWidth:180 }}>
             <option value="supervisors">👷 Supervisor</option>
             <option value="drivers">🚐 Driver</option>
-            <option value="permanent">🟢 Permanent Worker</option>
-            <option value="casual">🔵 Casual Worker</option>
+            <option value="permanent">🟢 General - Permanent</option>
+            <option value="casual">🔵 General - Casual</option>
           </Sel>
           <button onClick={addPerson} style={{ padding:"9px 20px", background:C.green, color:"#fff", border:"none", borderRadius:9, fontSize:13, fontWeight:800, cursor:"pointer", fontFamily:"inherit", flexShrink:0 }}>+ Add</button>
         </div>
@@ -959,8 +988,8 @@ const StaffManager = ({ staff, setStaff }) => {
                         style={{ fontSize:10, padding:"3px 6px", borderRadius:6, border:`1px solid ${C.border}`, background:C.bg, color:C.muted, cursor:"pointer", fontFamily:"inherit" }} title="Move to role">
                         <option value="supervisors">👷 Sup</option>
                         <option value="drivers">🚐 Driver</option>
-                        <option value="permanent">🟢 Perm</option>
-                        <option value="casual">🔵 Casual</option>
+                        <option value="permanent">🟢 Gen-Perm</option>
+                        <option value="casual">🔵 Gen-Cas</option>
                       </select>
                       {confirm===name
                         ? <div style={{ display:"flex", gap:4 }}>
@@ -990,7 +1019,7 @@ const StaffManager = ({ staff, setStaff }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // ADMIN VIEW
 // ─────────────────────────────────────────────────────────────────────────────
-const AdminView = ({ submissions, setSubmissions, rates, setRates, onLogout, staff, setStaff, estates, setEstates, workTypes, setWorkTypes, sheetsUrl, setSheetsUrl, syncAllToSheets }) => {
+const AdminView = ({ submissions, setSubmissions, rates, setRates, onLogout, staff, setStaff, estates, setEstates, workTypes, setWorkTypes, sheetsUrl, setSheetsUrl, syncAllToSheets, syncStatus }) => {
   const [tab, setTab]               = useState("submissions");
   const [editSheet, setEditSheet]   = useState(null);
   const [printSheet, setPrintSheet] = useState(null);
@@ -1054,6 +1083,22 @@ const AdminView = ({ submissions, setSubmissions, rates, setRates, onLogout, sta
       <style>{`@media print{.no-print{display:none!important}}@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}`}</style>
       <AppHeader role="admin" onLogout={onLogout} adminTab={tab} setAdminTab={setTab} submissions={submissions} />
 
+      {syncStatus==="syncing" && (
+        <div style={{ background:"#e8f3d8", color:"#3a5a1a", fontSize:12, fontWeight:600, padding:"8px 16px", textAlign:"center", borderBottom:"1px solid #d4e0b8" }}>
+          ⟳ Syncing submissions from Google Sheets…
+        </div>
+      )}
+      {syncStatus==="ok" && (
+        <div style={{ background:"#e8f3d8", color:"#3a5a1a", fontSize:12, fontWeight:600, padding:"8px 16px", textAlign:"center", borderBottom:"1px solid #d4e0b8" }}>
+          ✓ Synced from Google Sheets
+        </div>
+      )}
+      {syncStatus==="error" && (
+        <div style={{ background:"#fee2e2", color:"#991b1b", fontSize:12, fontWeight:600, padding:"8px 16px", textAlign:"center", borderBottom:"1px solid #fca5a5" }}>
+          ⚠ Could not sync from Sheets — showing local data only
+        </div>
+      )}
+
       {printSheet&&<PrintPreview sheet={printSheet} onClose={()=>setPrintSheet(null)} staff={staff} />}
       {editSheet&&(
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.4)", zIndex:500, overflowY:"auto", padding:"30px 16px" }}>
@@ -1075,42 +1120,103 @@ const AdminView = ({ submissions, setSubmissions, rates, setRates, onLogout, sta
         {/* SUBMISSIONS TAB */}
         {tab==="submissions"&&(
           <div>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
               <div>
                 <div style={{ fontFamily:"'Raleway',system-ui,sans-serif", fontSize:20, fontWeight:700, color:C.accent }}>All Submissions</div>
                 <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>{submissions.length} total</div>
               </div>
-              <button onClick={exportAllCSV} style={{ padding:"8px 16px", background:C.goldLt, color:C.gold, border:`1px solid ${C.gold}44`, borderRadius:9, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>↓ Export All CSV</button>
+              <button onClick={exportAllCSV} style={{ padding:"8px 16px", background:C.goldLt, color:C.gold, border:`1px solid ${C.gold}44`, borderRadius:9, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>↓ Export CSV</button>
             </div>
             {submissions.length===0
-              ? <div style={{ textAlign:"center", padding:"50px", color:C.muted }}><div style={{ fontSize:40, marginBottom:10 }}>📋</div><div style={{ fontWeight:700 }}>No submissions yet</div><div style={{ fontSize:13, marginTop:4 }}>Supervisors submit timesheets from the supervisor view.</div></div>
-              : <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-                  {[...submissions].reverse().map(s=>{
-                    const netH=calcNetHours(s.clockIn,s.clockOut,s.lunchTaken);
-                    return (
-                      <Card key={s.id} style={{ display:"flex", alignItems:"flex-start", gap:14 }}>
-                        <div style={{ width:42, height:42, borderRadius:10, background:C.accentLt, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0 }}>🍷</div>
-                        <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
-                            <span style={{ fontWeight:800, fontSize:14 }}>{s.date}</span>
-                            <Chip label={s.estate||"?"} color={C.muted} />
-                            <Chip label={s.workType||"?"} color={C.gold} />
-                            {s.hasDriver&&<Chip label="Driver" color={C.gold} />}
-                          </div>
-                          <div style={{ fontSize:12, color:C.muted, marginTop:4 }}>
-                            {s.supervisor} · {s.workers.length} worker{s.workers.length!==1?"s":""} · {fmtH(netH)} each{s.hasDriver&&s.driverName?` · 🚐 ${s.driverName}`:""}
-                          </div>
-                          {s.notes&&<div style={{ marginTop:6, fontSize:12, color:C.gold, background:C.goldLt, padding:"4px 10px", borderRadius:7, display:"inline-block" }}>📝 {s.notes.length>80?s.notes.slice(0,80)+"…":s.notes}</div>}
-                          <div style={{ fontSize:10, color:C.border, marginTop:4 }}>Submitted: {s.submittedAt?new Date(s.submittedAt).toLocaleString("en-ZA"):"—"}</div>
+              ? <div style={{ textAlign:"center", padding:"50px", color:C.muted }}>
+                  <div style={{ fontSize:40, marginBottom:10 }}>📋</div>
+                  <div style={{ fontWeight:700 }}>No submissions yet</div>
+                  <div style={{ fontSize:13, marginTop:4 }}>Supervisors submit timesheets from the supervisor view.</div>
+                </div>
+              : <div style={{ display:"flex", flexDirection:"column", gap:28 }}>
+                  {(()=>{
+                    const sorted=[...submissions].sort((a,b)=>b.date.localeCompare(a.date));
+                    const groups=[];
+                    const seen={};
+                    sorted.forEach(s=>{
+                      const fn=getFortnightForDate(s.date);
+                      if(!seen[fn.label]){seen[fn.label]=true;groups.push({label:fn.label,items:[]});}
+                      groups.find(g=>g.label===fn.label).items.push(s);
+                    });
+                    return groups.map(group=>(
+                      <div key={group.label}>
+                        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
+                          <div style={{ background:C.accent, color:"#fff", borderRadius:8, padding:"3px 12px", fontSize:11, fontWeight:800, letterSpacing:.5, textTransform:"uppercase", whiteSpace:"nowrap" }}>{group.label}</div>
+                          <div style={{ flex:1, height:1, background:C.border }} />
+                          <div style={{ fontSize:11, color:C.muted, whiteSpace:"nowrap" }}>{group.items.length} submission{group.items.length!==1?"s":""}</div>
                         </div>
-                        <div style={{ display:"flex", gap:6, flexShrink:0 }}>
-                          <button onClick={()=>setEditSheet(s)} style={{ padding:"6px 12px", background:C.goldLt, border:`1px solid ${C.gold}44`, borderRadius:8, color:C.gold, fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>✏ Edit</button>
-                          <button onClick={()=>setPrintSheet(s)} style={{ padding:"6px 12px", background:C.accentLt, border:`1px solid ${C.accent}33`, borderRadius:8, color:C.accent, fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>🖨</button>
-                          <button onClick={()=>deleteSubmission(s.id)} style={{ padding:"6px 10px", background:"#fee2e2", border:"1px solid #fca5a5", borderRadius:8, color:"#991b1b", fontSize:11, fontWeight:700, cursor:"pointer" }}>✕</button>
+                        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                          {group.items.map(s=>{
+                            const netH=calcNetHours(s.clockIn,s.clockOut,s.lunchTaken);
+                            const driverH=s.hasDriver&&s.driverName&&s.driverClockIn&&s.driverClockOut?calcNetHours(s.driverClockIn,s.driverClockOut,false):null;
+                            const dayName=s.date?new Date(s.date+"T12:00:00").toLocaleDateString("en-ZA",{weekday:"short"}):"";
+                            return (
+                              <Card key={s.id} style={{ padding:0, overflow:"hidden" }}>
+                                <div style={{ height:4, background:"linear-gradient(90deg,"+C.accent+","+C.gold+")" }} />
+                                <div style={{ padding:"14px 16px" }}>
+                                  <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:10, flexWrap:"wrap", marginBottom:12 }}>
+                                    <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+                                      <span style={{ fontFamily:"'Raleway',system-ui,sans-serif", fontWeight:900, fontSize:17, color:C.accent }}>{s.date}</span>
+                                      <span style={{ fontSize:11, color:C.muted, fontWeight:600 }}>{dayName}</span>
+                                      <Chip label={s.estate||"?"} color={C.muted} />
+                                      <Chip label={s.workType||"?"} color={C.gold} />
+                                    </div>
+                                    <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+                                      <button onClick={()=>setEditSheet(s)} style={{ padding:"5px 11px", background:C.goldLt, border:"1px solid "+C.gold+"44", borderRadius:7, color:C.gold, fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>✏ Edit</button>
+                                      <button onClick={()=>setPrintSheet(s)} style={{ padding:"5px 11px", background:C.accentLt, border:"1px solid "+C.accent+"33", borderRadius:7, color:C.accent, fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>🖨</button>
+                                      <button onClick={()=>deleteSubmission(s.id)} style={{ padding:"5px 9px", background:"#fee2e2", border:"1px solid #fca5a5", borderRadius:7, color:"#991b1b", fontSize:11, fontWeight:700, cursor:"pointer" }}>✕</button>
+                                    </div>
+                                  </div>
+                                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"12px 20px" }}>
+                                    <div>
+                                      <div style={{ fontSize:10, fontWeight:700, color:C.muted, textTransform:"uppercase", letterSpacing:.6, marginBottom:5 }}>Team Hours</div>
+                                      <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+                                        <span style={{ fontFamily:"monospace", fontSize:15, fontWeight:700, color:"#1a1a1a" }}>{s.clockIn||"—"}</span>
+                                        <span style={{ color:C.muted, fontSize:12 }}>{"→"}</span>
+                                        <span style={{ fontFamily:"monospace", fontSize:15, fontWeight:700, color:"#1a1a1a" }}>{s.clockOut||"—"}</span>
+                                        <span style={{ background:C.accentLt, color:C.accent, borderRadius:6, padding:"2px 8px", fontSize:11, fontWeight:800 }}>{fmtH(netH)}</span>
+                                        {s.lunchTaken===1&&<span style={{ fontSize:10, color:C.muted }}>−1h lunch</span>}
+                                        {(s.lunchTaken===0.5||s.lunchTaken===true)&&<span style={{ fontSize:10, color:C.muted }}>−30m lunch</span>}
+                                      </div>
+                                      <div style={{ marginTop:8, fontSize:11, color:C.muted }}><span style={{ fontWeight:700, color:"#333" }}>Supervisor:</span> {s.supervisor||"—"}</div>
+                                      {s.notes&&<div style={{ marginTop:8, fontSize:11, color:C.gold, background:C.goldLt, padding:"5px 10px", borderRadius:7, lineHeight:1.5 }}>{"📝 "+s.notes}</div>}
+                                      <div style={{ marginTop:8, fontSize:10, color:C.border }}>Submitted: {s.submittedAt?new Date(s.submittedAt).toLocaleString("en-ZA"):"—"}</div>
+                                    </div>
+                                    <div>
+                                      <div style={{ fontSize:10, fontWeight:700, color:C.muted, textTransform:"uppercase", letterSpacing:.6, marginBottom:5 }}>Team ({s.workers.length} worker{s.workers.length!==1?"s":""})</div>
+                                      <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
+                                        {(s.workers||[]).map(w=><span key={w} style={{ background:"#f0f4e8", border:"1px solid #d4e0b8", color:"#3a5a1a", borderRadius:6, padding:"2px 9px", fontSize:11, fontWeight:600 }}>{w}</span>)}
+                                        {s.workers.length===0&&<span style={{ color:C.muted, fontSize:11 }}>None listed</span>}
+                                      </div>
+                                      {s.hasDriver&&s.driverName&&(
+                                        <div style={{ marginTop:10, padding:"8px 10px", background:"#fffbf0", border:"1px solid "+C.gold+"44", borderRadius:8 }}>
+                                          <div style={{ fontSize:10, fontWeight:700, color:C.gold, textTransform:"uppercase", letterSpacing:.6, marginBottom:4 }}>🚐 Driver</div>
+                                          <div style={{ fontSize:12, fontWeight:700, color:"#333", marginBottom:3 }}>{s.driverName}</div>
+                                          {s.driverClockIn&&s.driverClockOut&&(
+                                            <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                                              <span style={{ fontFamily:"monospace", fontSize:12, fontWeight:600 }}>{s.driverClockIn}</span>
+                                              <span style={{ color:C.muted, fontSize:11 }}>{"→"}</span>
+                                              <span style={{ fontFamily:"monospace", fontSize:12, fontWeight:600 }}>{s.driverClockOut}</span>
+                                              {driverH!==null&&<span style={{ background:C.goldLt, color:C.gold, borderRadius:5, padding:"1px 7px", fontSize:10, fontWeight:800 }}>{fmtH(driverH)}</span>}
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </Card>
+                            );
+                          })}
                         </div>
-                      </Card>
-                    );
-                  })}
+                      </div>
+                    ));
+                  })()}
                 </div>
             }
           </div>
@@ -1136,7 +1242,7 @@ const AdminView = ({ submissions, setSubmissions, rates, setRates, onLogout, sta
             <Card style={{ marginBottom:16 }}>
               <SecHead icon="👥">Staff Management</SecHead>
               <p style={{ fontSize:12, color:C.muted, marginBottom:16, lineHeight:1.6 }}>Add or remove staff and assign roles. Saved to your browser and persists across sessions.</p>
-              <StaffManager staff={staff} setStaff={setStaff} />
+              <StaffManager staff={staff} setStaff={setStaff} sheetsUrl={sheetsUrl} />
             </Card>
 
             {/* Estates */}
@@ -1231,6 +1337,20 @@ const AdminView = ({ submissions, setSubmissions, rates, setRates, onLogout, sta
                     style={{ padding:"7px 14px", background:C.green, color:"#fff", border:"none", borderRadius:9, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
                     ↑ Sync All Submissions Now
                   </button>
+                  <button
+                    onClick={async ()=>{
+                      try {
+                        const form = new URLSearchParams({ data: JSON.stringify({ action: "saveConfig", staff, rates }) });
+                        const res = await fetch(sheetsUrl, { method: "POST", body: form });
+                        const data = await res.json();
+                        alert(data.ok ? "✅ Staff & rates saved to Google Sheets." : "❌ Error: " + data.error);
+                      } catch(err) {
+                        alert("❌ Failed to save: " + err.message);
+                      }
+                    }}
+                    style={{ padding:"7px 14px", background:C.accent, color:"#fff", border:"none", borderRadius:9, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+                    ↑ Save Staff & Rates to Cloud
+                  </button>
                 </div>
               )}
               {sheetsStatus==="ok"    && <div style={{ fontSize:12, color:C.green,      fontWeight:700 }}>✅ Script is live — VineTime API responding correctly.</div>}
@@ -1289,14 +1409,7 @@ const AdminView = ({ submissions, setSubmissions, rates, setRates, onLogout, sta
 function App() {
   const [role, setRole] = useState(null);
 
-  const [submissions, setSubmissionsRaw] = useState(() => {
-    try { const s=localStorage.getItem("vine_submissions"); return s?JSON.parse(s):[]; } catch{return [];}
-  });
-  const setSubmissions = (u) => setSubmissionsRaw(prev=>{
-    const next=typeof u==="function"?u(prev):u;
-    try{localStorage.setItem("vine_submissions",JSON.stringify(next));}catch{}
-    return next;
-  });
+  const [submissions, setSubmissions] = useState([]);
 
   const [rates, setRatesRaw] = useState(() => {
     try { const s=localStorage.getItem("vine_rates"); return s?{...DEFAULT_RATES,...JSON.parse(s)}:DEFAULT_RATES; } catch{return DEFAULT_RATES;}
@@ -1335,20 +1448,55 @@ function App() {
   });
 
   // Google Sheets sync URL (set in Admin → Settings)
+  const HARDCODED_URL = "https://script.google.com/macros/s/AKfycbx0Ft4JfgM0QVL3dIW0HrZaxVvhRXnjsjh5parzHgua0WLsVLmDQrKK7ZdgGtUHyDac/exec";
   const [sheetsUrl, setSheetsUrlRaw] = useState(() => {
-    try { return localStorage.getItem("vine_sheets_url") || ""; } catch { return ""; }
+    try { return localStorage.getItem("vine_sheets_url") || HARDCODED_URL; } catch { return HARDCODED_URL; }
   });
   const setSheetsUrl = (v) => {
-    setSheetsUrlRaw(v);
-    try { localStorage.setItem("vine_sheets_url", v); } catch {}
+    setSheetsUrlRaw(v || HARDCODED_URL);
+    try { localStorage.setItem("vine_sheets_url", v || HARDCODED_URL); } catch {}
   };
 
-  // Syncs a single submission to Google Sheets.
-  // Uses application/x-www-form-urlencoded — a "simple" CORS request that needs no preflight
-  // and lets us read the response to confirm success.
-  const syncToSheets = (sheet, url) => {
-    const target = url !== undefined ? url : sheetsUrl;
-    if (!target) return;
+  const [syncStatus, setSyncStatus] = useState(null); // null | "syncing" | "ok" | "error"
+
+  // Sheet is the single source of truth for submissions — fetch on every login
+  React.useEffect(() => {
+    if (role !== "admin" || !sheetsUrl) return;
+    setSyncStatus("syncing");
+    fetch(sheetsUrl + "?action=submissions")
+      .then(r => r.json())
+      .then(data => {
+        setSubmissions(data.ok && Array.isArray(data.submissions) ? data.submissions : []);
+        setSyncStatus("ok");
+      })
+      .catch(() => setSyncStatus("error"));
+  }, [role, sheetsUrl]);
+
+  // Fetch staff, rates + estates from Sheet on every login
+  React.useEffect(() => {
+    if (!sheetsUrl) return;
+    Promise.all([
+      fetch(sheetsUrl + "?action=staff").then(r=>r.json()).catch(()=>null),
+      fetch(sheetsUrl + "?action=rates").then(r=>r.json()).catch(()=>null),
+      fetch(sheetsUrl + "?action=estates").then(r=>r.json()).catch(()=>null),
+    ]).then(function([staffData, ratesData, estatesData]) {
+      if (staffData && staffData.ok && staffData.staff) {
+        setStaffRaw(staffData.staff);
+        try{localStorage.setItem("vine_staff",JSON.stringify(staffData.staff));}catch{}
+      }
+      if (ratesData && ratesData.ok && ratesData.rates) {
+        setRatesRaw(prev=>({...prev,...ratesData.rates}));
+        try{localStorage.setItem("vine_rates",JSON.stringify(ratesData.rates));}catch{}
+      }
+      if (estatesData && estatesData.ok && estatesData.estates) {
+        setEstatesRaw(estatesData.estates);
+        try{localStorage.setItem("vine_estates",JSON.stringify(estatesData.estates));}catch{}
+      }
+    });
+  }, [role, sheetsUrl]);
+
+  // POST a submission to Sheets — returns a promise so caller can handle success/failure
+  const postToSheets = (sheet) => {
     const fn = getFortnightForDate(sheet.date);
     const payload = {
       submission: sheet,
@@ -1359,25 +1507,16 @@ function App() {
       staff
     };
     const form = new URLSearchParams({ data: JSON.stringify(payload) });
-    fetch(target, { method: "POST", body: form })
-      .then(r => r.json())
-      .then(d => { if (!d.ok) console.warn("VineTime sync error:", d.error); })
-      .catch(err => console.warn("VineTime sync failed:", err.message));
+    return fetch(sheetsUrl, { method: "POST", body: form }).then(r => r.json());
   };
 
-  // Pushes every stored submission to Sheets (used in Settings "Sync All" button)
-  const syncAllToSheets = (url) => {
-    const target = url || sheetsUrl;
-    if (!target || !submissions.length) return 0;
-    submissions.forEach(s => syncToSheets(s, target));
-    return submissions.length;
-  };
+  const syncAllToSheets = (url) => { return 0; }; // kept for Settings UI compatibility
 
   if (!role) return <LoginScreen onLogin={setRole} />;
 
   if (role==="supervisor") return (
     <SupervisorView
-      onSubmit={(sheet) => { setSubmissions(p=>[...p,sheet]); syncToSheets(sheet); }}
+      onSubmit={(sheet) => postToSheets(sheet)}
       submissions={submissions}
       onLogout={()=>setRole(null)}
       staff={staff}
@@ -1396,6 +1535,7 @@ function App() {
       workTypes={workTypes} setWorkTypes={setWorkTypes}
       sheetsUrl={sheetsUrl} setSheetsUrl={setSheetsUrl}
       syncAllToSheets={syncAllToSheets}
+      syncStatus={syncStatus}
     />
   );
 }
@@ -1403,11 +1543,12 @@ function App() {
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
 <script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js').catch(()=>{});
-    });
-  }
+  // Service worker disabled during development
+  // if ('serviceWorker' in navigator) {
+  //   window.addEventListener('load', () => {
+  //     navigator.serviceWorker.register('sw.js').catch(()=>{});
+  //   });
+  // }
 </script>
 </body>
 </html>
