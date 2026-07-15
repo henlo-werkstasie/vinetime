@@ -1448,7 +1448,7 @@ function App() {
   });
 
   // Google Sheets sync URL (set in Admin → Settings)
-  const HARDCODED_URL = "https://script.google.com/macros/s/AKfycbyGpYuagnCZ9ig1BcX4l-Wup2WIgk10HYus9iU8BiXE_sdW2DswWqKrJuG7zGZ5sY4g/exec";
+  const HARDCODED_URL = "https://script.google.com/macros/s/AKfycbx0Ft4JfgM0QVL3dIW0HrZaxVvhRXnjsjh5parzHgua0WLsVLmDQrKK7ZdgGtUHyDac/exec";
   const [sheetsUrl, setSheetsUrlRaw] = useState(() => {
     try { return localStorage.getItem("vine_sheets_url") || HARDCODED_URL; } catch { return HARDCODED_URL; }
   });
