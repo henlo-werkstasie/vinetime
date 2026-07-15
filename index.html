@@ -739,7 +739,7 @@ const PayrollSummary = ({ submissions, rates, fortnightStart, staff=DEFAULT_STAF
         const pri={supervisor:4,driver:3,permanent:2,casual:1};
         if ((pri[role]||0)>(pri[map[name].role]||0)) map[name].role=role;
       };
-      if (s.supervisor) add(s.supervisor,"supervisor",teamH);
+      if (s.supervisor && !s.teamLeader) add(s.supervisor,"supervisor",teamH);
       if (s.hasDriver&&s.driverName){
         const dWaitH=(s.driverWaitingPeriods||[]).reduce((a,b)=>a+(b||0),0)/60;
         let dH=Math.max(0,calcNetHours(s.driverClockIn||s.clockIn,s.driverClockOut||s.clockOut,false)-dWaitH);
@@ -1243,11 +1243,12 @@ const AdminView = ({ submissions, setSubmissions, rates, setRates, onLogout, sta
                                           <div style={{ fontSize:10, fontWeight:700, color:C.gold, textTransform:"uppercase", letterSpacing:.6, marginBottom:4 }}>🚐 Driver</div>
                                           <div style={{ fontSize:12, fontWeight:700, color:"#333", marginBottom:3 }}>{s.driverName}</div>
                                           {s.driverClockIn&&s.driverClockOut&&(
-                                            <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                                            <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
                                               <span style={{ fontFamily:"monospace", fontSize:12, fontWeight:600 }}>{s.driverClockIn}</span>
                                               <span style={{ color:C.muted, fontSize:11 }}>{"→"}</span>
                                               <span style={{ fontFamily:"monospace", fontSize:12, fontWeight:600 }}>{s.driverClockOut}</span>
                                               {driverH!==null&&<span style={{ background:C.goldLt, color:C.gold, borderRadius:5, padding:"1px 7px", fontSize:10, fontWeight:800 }}>{fmtH(driverH)}</span>}
+                                              {(()=>{ const tot=(s.driverWaitingPeriods||[]).reduce((a,b)=>a+(b||0),0); return tot>0&&<span style={{ fontSize:10, color:C.muted }}>−{tot}m waiting</span>; })()}
                                             </div>
                                           )}
                                         </div>
@@ -1493,7 +1494,7 @@ function App() {
   });
 
   // Google Sheets sync URL (set in Admin → Settings)
-  const HARDCODED_URL = "https://script.google.com/macros/s/AKfycbz1CCuhh0JDyQn3cdpGjH_dgijdkoc4HFHaEoi0E_6SBqjvsTHt2xRDZB0Dn8gfTl6h/exec";
+  const HARDCODED_URL = "https://script.google.com/macros/s/AKfycbxpxPdUt4xlA-EWwh22Kw560Ku_8Pl387o_S06yETB7atqTQ_Xw9YEjccVUJ2RNe3Xo/exec";
   const [sheetsUrl, setSheetsUrlRaw] = useState(() => {
     try { return localStorage.getItem("vine_sheets_url") || HARDCODED_URL; } catch { return HARDCODED_URL; }
   });
