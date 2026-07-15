@@ -1,12 +1,12 @@
-const CACHE = 'vinetime-v1';
+const CACHE = 'vinetime-v2';
 const ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
   '/icon.svg',
-  'https://unpkg.com/react@18/umd/react.development.js',
-  'https://unpkg.com/react-dom@18/umd/react-dom.development.js',
-  'https://unpkg.com/@babel/standalone/babel.min.js',
+  'https://unpkg.com/react@18.2.0/umd/react.development.js',
+  'https://unpkg.com/react-dom@18.2.0/umd/react-dom.development.js',
+  'https://unpkg.com/@babel/standalone@7.23.10/babel.min.js',
 ];
 
 self.addEventListener('install', e => {
