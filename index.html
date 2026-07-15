@@ -163,8 +163,10 @@ const emptySheet = (supervisor = "") => ({
   driverName: "",
   driverClockIn: "",
   driverClockOut: "",
+  driverWaitingPeriods: [],
   driverDrops: [],
   workers: [],
+  teamLeader: "",
   notes: "",
   submittedAt: null,
 });
@@ -538,10 +540,25 @@ const TimesheetForm = ({ initial, onSubmit, onCancel, submitLabel="Submit Timesh
       <Card>
         <SecHead icon="👥">Team Members</SecHead>
         <p style={{ fontSize:12, color:C.muted, marginBottom:12 }}>Select everyone working today. The supervisor is automatically included at their rate.</p>
-        <MemberPicker selected={s.workers} onChange={v=>upd("workers",v)} supervisors={staff.supervisors} permanent={staff.permanent} casual={staff.casual} />
+        <MemberPicker selected={s.workers} onChange={v=>{ upd("workers",v); if(!v.includes(s.teamLeader)) upd("teamLeader",""); }} supervisors={staff.supervisors} permanent={staff.permanent} casual={staff.casual} />
         {s.workers.length>0&&<div style={{ marginTop:10, background:C.goldLt, border:`1px solid ${C.gold}33`, borderRadius:8, padding:"7px 13px", fontSize:12, color:C.gold, fontWeight:700 }}>
           {s.workers.length} worker{s.workers.length!==1?"s":""} selected{teamNetH>0?` · ${fmtH(teamNetH)} each`:""}
         </div>}
+        {s.workers.length>0&&(
+          <div style={{ marginTop:14 }}>
+            <Lbl>Team Leader <span style={{ fontWeight:400, textTransform:"none", letterSpacing:0 }}>(optional — if someone other than the supervisor led the team)</span></Lbl>
+            <div style={{ display:"flex", flexDirection:"column", gap:4, marginTop:6 }}>
+              {s.workers.map(name=>(
+                <button key={name} onClick={()=>upd("teamLeader", s.teamLeader===name?"":name)}
+                  style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background:s.teamLeader===name?C.goldLt:C.inputBg, border:`1.5px solid ${s.teamLeader===name?C.gold:C.border}`, borderRadius:9, cursor:"pointer", fontFamily:"inherit", textAlign:"left", transition:"all .15s" }}>
+                  <span style={{ fontSize:17 }}>{s.teamLeader===name?"⭐":"☆"}</span>
+                  <span style={{ fontSize:14, fontWeight:s.teamLeader===name?700:400, color:s.teamLeader===name?C.gold:C.text }}>{name}</span>
+                  {s.teamLeader===name&&<span style={{ marginLeft:"auto", fontSize:10, fontWeight:800, color:C.gold, letterSpacing:.5 }}>TEAM LEADER</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </Card>
 
       <Card style={{ background:"#fffcf5", border:`1.5px solid ${C.gold}44` }}>
@@ -559,9 +576,33 @@ const TimesheetForm = ({ initial, onSubmit, onCancel, submitLabel="Submit Timesh
           </div>
           <div style={{ background:C.goldLt, borderRadius:10, padding:"12px 14px", marginBottom:12 }}>
             <div style={{ fontSize:11, fontWeight:700, color:C.gold, marginBottom:10 }}>DRIVER TIMES — leave blank to use team times above</div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, alignItems:"end" }}>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, alignItems:"end", marginBottom:12 }}>
               <div><Lbl>Clock In</Lbl><Inp type="time" value={s.driverClockIn} onChange={e=>upd("driverClockIn",e.target.value)} /></div>
               <div><Lbl>Clock Out</Lbl><Inp type="time" value={s.driverClockOut} onChange={e=>upd("driverClockOut",e.target.value)} /></div>
+            </div>
+            <div>
+              <Lbl>Waiting / Standing Time <span style={{ fontWeight:400, textTransform:"none", letterSpacing:0 }}>(deducted from driver hours)</span></Lbl>
+              {s.driverWaitingPeriods.length>0&&(
+                <div style={{ display:"flex", flexDirection:"column", gap:6, marginTop:6, marginBottom:8 }}>
+                  {s.driverWaitingPeriods.map((mins,i)=>(
+                    <div key={i} style={{ display:"flex", alignItems:"center", gap:8 }}>
+                      <input type="number" min="1" max="480" value={mins||""} placeholder="mins"
+                        onChange={e=>{ const v=parseInt(e.target.value)||0; const p=[...s.driverWaitingPeriods]; p[i]=v; upd("driverWaitingPeriods",p); }}
+                        style={{ width:90, padding:"9px 12px", borderRadius:9, border:`1.5px solid ${C.gold}66`, background:"#fff", fontSize:15, color:C.text, fontFamily:"inherit", outline:"none", boxSizing:"border-box" }} />
+                      <span style={{ fontSize:13, color:C.muted, fontWeight:600 }}>min</span>
+                      <button onClick={()=>{ const p=s.driverWaitingPeriods.filter((_,di)=>di!==i); upd("driverWaitingPeriods",p); }}
+                        style={{ background:"none", border:"none", color:C.muted, cursor:"pointer", fontSize:18, lineHeight:1, padding:"0 4px" }}>×</button>
+                    </div>
+                  ))}
+                  {(()=>{ const total=s.driverWaitingPeriods.reduce((a,b)=>a+(b||0),0); return total>0&&(
+                    <div style={{ fontSize:11, color:C.gold, fontWeight:700 }}>Total waiting: {total>=60?`${Math.floor(total/60)}h ${total%60>0?total%60+"m":""}`.trim():total+"m"} deducted</div>
+                  ); })()}
+                </div>
+              )}
+              <button onClick={()=>upd("driverWaitingPeriods",[...s.driverWaitingPeriods,0])}
+                style={{ fontSize:12, fontWeight:700, color:C.gold, background:"none", border:`1.5px dashed ${C.gold}88`, borderRadius:8, padding:"6px 14px", cursor:"pointer", fontFamily:"inherit" }}>
+                + Add waiting period
+              </button>
             </div>
           </div>
           {s.driverDrops.map((dr,i)=>(
@@ -700,7 +741,8 @@ const PayrollSummary = ({ submissions, rates, fortnightStart, staff=DEFAULT_STAF
       };
       if (s.supervisor) add(s.supervisor,"supervisor",teamH);
       if (s.hasDriver&&s.driverName){
-        let dH=calcNetHours(s.driverClockIn||s.clockIn,s.driverClockOut||s.clockOut,s.lunchTaken);
+        const dWaitH=(s.driverWaitingPeriods||[]).reduce((a,b)=>a+(b||0),0)/60;
+        let dH=Math.max(0,calcNetHours(s.driverClockIn||s.clockIn,s.driverClockOut||s.clockOut,false)-dWaitH);
         s.driverDrops.forEach(dr=>{dH+=calcNetHours(dr.clockIn,dr.clockOut,false);});
         add(s.driverName,"driver",dH);
       }
@@ -809,7 +851,8 @@ const PayrollSummary = ({ submissions, rates, fortnightStart, staff=DEFAULT_STAF
 // ─────────────────────────────────────────────────────────────────────────────
 const PrintPreview = ({ sheet, onClose, staff=DEFAULT_STAFF }) => {
   const netH    = calcNetHours(sheet.clockIn,sheet.clockOut,sheet.lunchTaken);
-  const driverH = sheet.hasDriver?calcNetHours(sheet.driverClockIn||sheet.clockIn,sheet.driverClockOut||sheet.clockOut,sheet.lunchTaken):0;
+  const dWaitH=(sheet.driverWaitingPeriods||[]).reduce((a,b)=>a+(b||0),0)/60;
+  const driverH = sheet.hasDriver?Math.max(0,calcNetHours(sheet.driverClockIn||sheet.clockIn,sheet.driverClockOut||sheet.clockOut,false)-dWaitH):0;
   return (
     <div style={{ position:"fixed", inset:0, background:"#fff", zIndex:9999, overflowY:"auto", fontFamily:"Georgia,serif" }}>
       <div className="no-print" style={{ position:"sticky", top:0, background:C.accent, color:"#fff", padding:"10px 24px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
@@ -826,7 +869,7 @@ const PrintPreview = ({ sheet, onClose, staff=DEFAULT_STAFF }) => {
         </div>
         <table style={{ width:"100%", borderCollapse:"collapse", marginBottom:20, fontSize:12 }}>
           <tbody><tr>
-            {[["Supervisor",sheet.supervisor],["Estate",sheet.estate],["Work Type",sheet.workType],["Lunch",sheet.lunchTaken===1?"Yes (−1h)":sheet.lunchTaken===0.5||sheet.lunchTaken===true?"Yes (−30m)":"No"]].map(([k,v])=>(
+            {[["Supervisor",sheet.supervisor],["Team Leader",sheet.teamLeader||"—"],["Estate",sheet.estate],["Work Type",sheet.workType],["Lunch",sheet.lunchTaken===1?"Yes (−1h)":sheet.lunchTaken===0.5||sheet.lunchTaken===true?"Yes (−30m)":"No"]].map(([k,v])=>(
               <td key={k} style={{ padding:"8px 10px", border:"1px solid #ddd" }}>
                 <div style={{ fontSize:9, fontWeight:800, color:"#999", letterSpacing:.6, marginBottom:2 }}>{k.toUpperCase()}</div>
                 <div style={{ fontWeight:700 }}>{v||"—"}</div>
@@ -1153,7 +1196,8 @@ const AdminView = ({ submissions, setSubmissions, rates, setRates, onLogout, sta
                         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
                           {group.items.map(s=>{
                             const netH=calcNetHours(s.clockIn,s.clockOut,s.lunchTaken);
-                            const driverH=s.hasDriver&&s.driverName&&s.driverClockIn&&s.driverClockOut?calcNetHours(s.driverClockIn,s.driverClockOut,false):null;
+                            const dWaitH=(s.driverWaitingPeriods||[]).reduce((a,b)=>a+(b||0),0)/60;
+                            const driverH=s.hasDriver&&s.driverName&&s.driverClockIn&&s.driverClockOut?Math.max(0,calcNetHours(s.driverClockIn,s.driverClockOut,false)-dWaitH):null;
                             const dayName=s.date?new Date(s.date+"T12:00:00").toLocaleDateString("en-ZA",{weekday:"short"}):"";
                             return (
                               <Card key={s.id} style={{ padding:0, overflow:"hidden" }}>
@@ -1184,6 +1228,7 @@ const AdminView = ({ submissions, setSubmissions, rates, setRates, onLogout, sta
                                         {(s.lunchTaken===0.5||s.lunchTaken===true)&&<span style={{ fontSize:10, color:C.muted }}>−30m lunch</span>}
                                       </div>
                                       <div style={{ marginTop:8, fontSize:11, color:C.muted }}><span style={{ fontWeight:700, color:"#333" }}>Supervisor:</span> {s.supervisor||"—"}</div>
+                                      {s.teamLeader&&<div style={{ marginTop:4, fontSize:11, color:C.muted }}><span style={{ fontWeight:700, color:"#333" }}>⭐ Team Leader:</span> {s.teamLeader}</div>}
                                       {s.notes&&<div style={{ marginTop:8, fontSize:11, color:C.gold, background:C.goldLt, padding:"5px 10px", borderRadius:7, lineHeight:1.5 }}>{"📝 "+s.notes}</div>}
                                       <div style={{ marginTop:8, fontSize:10, color:C.border }}>Submitted: {s.submittedAt?new Date(s.submittedAt).toLocaleString("en-ZA"):"—"}</div>
                                     </div>
@@ -1448,7 +1493,7 @@ function App() {
   });
 
   // Google Sheets sync URL (set in Admin → Settings)
-  const HARDCODED_URL = "https://script.google.com/macros/s/AKfycbx0Ft4JfgM0QVL3dIW0HrZaxVvhRXnjsjh5parzHgua0WLsVLmDQrKK7ZdgGtUHyDac/exec";
+  const HARDCODED_URL = "https://script.google.com/macros/s/AKfycbz1CCuhh0JDyQn3cdpGjH_dgijdkoc4HFHaEoi0E_6SBqjvsTHt2xRDZB0Dn8gfTl6h/exec";
   const [sheetsUrl, setSheetsUrlRaw] = useState(() => {
     try { return localStorage.getItem("vine_sheets_url") || HARDCODED_URL; } catch { return HARDCODED_URL; }
   });
